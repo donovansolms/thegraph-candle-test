@@ -1,0 +1,42 @@
+type Token @entity {
+  id: ID!
+  name: String!
+  denom: String!
+  symbol: String!
+  decimals: String!
+}
+
+type Pair @entity {
+  id: ID!
+  poolId: String
+  symbol: String!
+  baseAsset: String!
+  quoteAsset: String!
+  name: String!
+}
+
+type Swap @entity {
+  id: ID!
+  height: BigInt!
+  sender: String
+  poolId: String
+  tokenIn: Token
+  tokenInAmount: BigInt
+  tokenOut: Token
+  tokenOutAmount: BigInt
+}
+
+type Candle @entity {
+  id: ID!
+  poolId: String
+  base: String
+  quote: String
+  interval: String
+  timestamp: BigInt
+
+  open: BigDecimal!
+  high: BigDecimal!
+  low: BigDecimal!
+  close: BigDecimal!
+  volume: BigDecimal!
+}
