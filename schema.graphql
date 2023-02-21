@@ -4,6 +4,7 @@ type Token @entity {
   denom: String!
   symbol: String!
   decimals: String!
+  priceUSD: String
 }
 
 type Pair @entity {

@@ -1,14 +1,52 @@
 import { BigDecimal, BigInt, cosmos } from "@graphprotocol/graph-ts";
-import { log } from '@graphprotocol/graph-ts'
 import { Token, Candle, Pair, Swap } from "../generated/schema";
 import { DENOM_NAME_MAPPING } from "./denoms";
 import { CandleSize } from "./types";
 
-const WHITELISTED_POOLS = ["1", "678"];
-const ATOM_OSMO_POOL = 1;
 const USDC_OSMO_POOL = 678;
 const USDC_DENOM = "ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858";
-const ATOM_DENOM = "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2";
+const CANDLE_SIZES: CandleSize[] = [
+  {
+    interval: "5m",
+    timeframe: "minute",
+    divisor: 5
+  },
+  {
+    interval: "15m",
+    timeframe: "minute",
+    divisor: 15
+  },
+  {
+    interval: "30m",
+    timeframe: "minute",
+    divisor: 30
+  },
+  {
+    interval: "1h",
+    timeframe: "hour",
+    divisor: 1
+  },
+  {
+    interval: "4h",
+    timeframe: "hour",
+    divisor: 4
+  },
+  {
+    interval: "8h",
+    timeframe: "hour",
+    divisor: 8
+  },
+  {
+    interval: "12h",
+    timeframe: "hour",
+    divisor: 12
+  },
+  {
+    interval: "1d",
+    timeframe: "day",
+    divisor: 1
+  }
+];
 
 /**
  * This function is called by TheGraph for each swap event on Osmosis
@@ -17,6 +55,7 @@ const ATOM_DENOM = "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25
  * @param data The event data
  */
 export function handleSwap(data: cosmos.EventData): void {
+
 
   // Capture the tokens for this swap
   const tokenIn = createToken(data.event.getAttributeValue("tokens_in"));
@@ -28,141 +67,22 @@ export function handleSwap(data: cosmos.EventData): void {
   // Capture the swap
   const swap = createSwap(tokenIn, tokenOut, data);
 
-  const candleSizes: CandleSize[] = [
-    {
-      interval: "5m",
-      timeframe: "minute",
-      divisor: 5
-    },
-    {
-      interval: "15m",
-      timeframe: "minute",
-      divisor: 15
-    },
-    {
-      interval: "30m",
-      timeframe: "minute",
-      divisor: 30
-    },
-    {
-      interval: "1h",
-      timeframe: "hour",
-      divisor: 1
-    },
-    {
-      interval: "4h",
-      timeframe: "hour",
-      divisor: 4
-    },
-    {
-      interval: "8h",
-      timeframe: "hour",
-      divisor: 8
-    },
-    {
-      interval: "12h",
-      timeframe: "hour",
-      divisor: 12
-    },
-    {
-      interval: "1d",
-      timeframe: "day",
-      divisor: 1
-    }
-  ];
   // Create candles for the given intervals
-  createCandles(swap, pair, tokenOut, data, candleSizes);
+  createCandles(swap, pair, tokenOut, data, CANDLE_SIZES);
 
-
-  // If the swap was made through a whitelisted pool we need to calculate the
-  // USDC value for ATOM to generate a custom ATOM <> USDC chart as there are no
-  // ATOM - USDC whitelisted pools
-  // custom-ATOM-USDC
-  // custom-USDC-ATOM
-  if (WHITELISTED_POOLS.includes(data.event.getAttributeValue("pool_id"))) {
-    // Get the timestamp for the start of the 1d candle
-    const dayCandleTime = getInterval(data.block.header.time.seconds, "day", 1);
-    // Day candles are stored with the ID 
-    // poolID-timestamp-denom-1d
-
-    // Create custom ATOM-USDC candles based on ATOM <> OSMO trades
-    if (tokenIn.symbol == "ATOM" && tokenOut.symbol == "OSMO" || tokenIn.symbol == "OSMO" && tokenOut.symbol == "ATOM") {
-      // ATOM <> OSMO trade
-      // Get the latest price of ATOM in OSMO
-      const atomOsmoCandle = Candle.load(`${data.event.getAttributeValue("pool_id")}-${dayCandleTime}-uosmo-1d`);
-      if (atomOsmoCandle === null) {
-        // We can't get the price if we have no ATOM <> OSMO price, this should
-        // be very very rare
-        return;
-      }
-
-      const atomPriceInOsmo = atomOsmoCandle.close;
-
-      // Get the latest price of OSMO in USDC
-      const osmoUsdcCandle = Candle.load(`${USDC_OSMO_POOL}-${dayCandleTime}-uosmo-1d`);
-      if (osmoUsdcCandle === null) {
-        // We can't get the price if we have no USDC <> OSMO price, this should
-        // be very very rare
-        return;
-      }
-
-      const osmoPriceInUsdc = osmoUsdcCandle.close;
-      const atomPriceUSDC = atomPriceInOsmo.times(osmoPriceInUsdc);
-
-
-      for (let i = 0; i < candleSizes.length; i++) {
-        createCandleWithRate(ATOM_DENOM, USDC_DENOM, atomPriceUSDC, BigDecimal.zero(), data, candleSizes[i]);
-      }
-
-      // Create USDC-ATOM candles
-      const usdcPriceAtom = BigDecimal.fromString("1.0").div(atomPriceUSDC);
-      for (let i = 0; i < candleSizes.length; i++) {
-        createCandleWithRate(USDC_DENOM, ATOM_DENOM, usdcPriceAtom, BigDecimal.zero(), data, candleSizes[i]);
-      }
-    }
-
-    // Create custom ATOM-USDC candles based on USDC <> OSMO trades
-    if (tokenIn.symbol == "USDC" && tokenOut.symbol == "OSMO" || tokenIn.symbol == "OSMO" && tokenOut.symbol == "USDC") {
-      // OSMO <> USDC trade
-      // Get the latest price of ATOM in OSMO
-      const osmoUsdcCandle = Candle.load(`${data.event.getAttributeValue("pool_id")}-${dayCandleTime}-${USDC_DENOM}-1d`);
-      if (osmoUsdcCandle === null) {
-        // We can't get the price if we have no USDC <> OSMO price, this should
-        // be very very rare
-        return;
-      }
-
-      const osmoPriceInUsdc = osmoUsdcCandle.close;
-
-      const atomOsmoCandle = Candle.load(`${ATOM_OSMO_POOL}}-${dayCandleTime}-uosmo-1d`);
-      if (atomOsmoCandle === null) {
-        // We can't get the price if we have no ATOM <> OSMO price, this should
-        // be very very rare
-        return;
-      }
-
-      const atomPriceInOsmo = atomOsmoCandle.close;
-      const atomPriceUSDC = atomPriceInOsmo.times(osmoPriceInUsdc);
-
-      // ATOM-USDC
-      for (let i = 0; i < candleSizes.length; i++) {
-        createCandleWithRate(ATOM_DENOM, USDC_DENOM, atomPriceUSDC, BigDecimal.zero(), data, candleSizes[i]);
-      }
-
-      // Create USDC-ATOM candles
-      const usdcPriceAtom = BigDecimal.fromString("1.0").div(atomPriceUSDC);
-      for (let i = 0; i < candleSizes.length; i++) {
-        createCandleWithRate(USDC_DENOM, ATOM_DENOM, usdcPriceAtom, BigDecimal.zero(), data, candleSizes[i]);
-      }
-    }
-  }
+  // Create token <> usdc candles
+  createUSDCCandles(tokenIn, data, CANDLE_SIZES);
 }
 
 
 /**
  * Create candles for all the given sizes
  * 
- * @param sizes A map of candle sizes to index
+ * @param swap The swap entity
+ * @param pair The pair entity 
+ * @param quoteAsset The quote asset for the pair
+ * @param data The event data
+ * @param sizes The candle sizes to create
  */
 function createCandles(swap: Swap, pair: Pair, quoteAsset: Token, data: cosmos.EventData, sizes: CandleSize[]): void {
   for (let i = 0; i < sizes.length; i++) {
@@ -171,9 +91,72 @@ function createCandles(swap: Swap, pair: Pair, quoteAsset: Token, data: cosmos.E
 }
 
 /**
+ * Create token <> USDC and USDC <> token candles
+ * 
+ * @param tokenIn The token to create candles for
+ * @param data The event data
+ * @param candleSizes The candle sizes to create
+ * @returns 
+ */
+function createUSDCCandles(tokenIn: Token, data: cosmos.EventData, candleSizes: CandleSize[]): void {
+  // Create additional candles for every token vs USDC
+
+  // Get the timestamp for the start of the 1d candle
+  const dayCandleTime = getInterval(data.block.header.time.seconds, "day", 1);
+  // Day candles are stored with the ID 
+  // poolID-timestamp-denom-1d
+
+
+  // Calculate the price of tokenIn as USDC
+  // If tokenIn is USDC then the price is 1
+  let tokenInPriceInUsdc = BigDecimal.fromString("1.0");
+  if (tokenIn.symbol != "USDC") {
+
+    // Get the latest candle for tokenIn <> OSMO
+    const tokenInOsmoCandle = Candle.load(`${data.event.getAttributeValue("pool_id")}-${dayCandleTime}-uosmo-1d`);
+    if (tokenInOsmoCandle === null) {
+      // We can't get the price if we have no tokenIn <> OSMO price, this should
+      // be very very rare
+      return;
+    }
+
+    // Get the Osmo price in USDC
+    const osmoUsdcCandle = Candle.load(`${USDC_OSMO_POOL}-${dayCandleTime}-uosmo-1d`);
+    if (osmoUsdcCandle === null) {
+      // We can't get the price if we have no USDC <> OSMO price, this should
+      // be very very rare
+      return;
+    }
+
+    // Calculate the price of tokenIn in USDC
+    tokenInPriceInUsdc = tokenInOsmoCandle.close.times(osmoUsdcCandle.close);
+
+    // Add tokenUSD price to tokenIn entity and save
+    tokenIn.priceUSD = tokenInPriceInUsdc.toString();
+    tokenIn.save();
+
+
+    // Add candles for tokenIn <> USDC
+    for (let i = 0; i < candleSizes.length; i++) {
+      createCandleWithRate(tokenIn.denom, USDC_DENOM, tokenInPriceInUsdc, BigDecimal.zero(), data, candleSizes[i]);
+    }
+
+    // Add candles for USDC <> tokenIn
+    const usdcPriceInTokenIn = BigDecimal.fromString("1.0").div(tokenInPriceInUsdc);
+    for (let i = 0; i < candleSizes.length; i++) {
+      createCandleWithRate(USDC_DENOM, tokenIn.denom, usdcPriceInTokenIn, BigDecimal.zero(), data, candleSizes[i]);
+    }
+  }
+}
+
+/**
  * Create candles for the required timeframes
  * 
- * @param data 
+ * @param swap The swap entity
+ * @param pair The pair entity 
+ * @param quoteAsset The quote asset for the pair
+ * @param data The event data
+ * @param size The candle size to create
  */
 function createCandle(swap: Swap, pair: Pair, quoteAsset: Token, data: cosmos.EventData, size: CandleSize): void {
 
@@ -222,7 +205,12 @@ function createCandle(swap: Swap, pair: Pair, quoteAsset: Token, data: cosmos.Ev
 /**
  * Create candles for the required timeframes with the given rate
  * 
- * @param data 
+ * @param baseAssetDenom The base asset denom
+ * @param quoteAssetDenom The quote asset denom
+ * @param rate The rate for baseAssetDenom in quoteAssetDenom
+ * @param volume The volume for the candle
+ * @param data The event data
+ * @param size The candle size to create
  */
 function createCandleWithRate(baseAssetDenom: string, quoteAssetDenom: string, rate: BigDecimal, volume: BigDecimal, data: cosmos.EventData, size: CandleSize): void {
 
