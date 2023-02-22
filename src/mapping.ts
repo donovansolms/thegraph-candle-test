@@ -1,4 +1,5 @@
 import { BigDecimal, BigInt, cosmos } from "@graphprotocol/graph-ts";
+
 import { Token, Candle, Pair, Swap } from "../generated/schema";
 import { DENOM_NAME_MAPPING } from "./denoms";
 import { CandleSize } from "./types";
@@ -56,7 +57,6 @@ const CANDLE_SIZES: CandleSize[] = [
  */
 export function handleSwap(data: cosmos.EventData): void {
 
-
   // Capture the tokens for this swap
   const tokenIn = createToken(data.event.getAttributeValue("tokens_in"));
   const tokenOut = createToken(data.event.getAttributeValue("tokens_out"));
@@ -103,9 +103,7 @@ function createUSDCCandles(tokenIn: Token, data: cosmos.EventData, candleSizes: 
 
   // Get the timestamp for the start of the 1d candle
   const dayCandleTime = getInterval(data.block.header.time.seconds, "day", 1);
-  // Day candles are stored with the ID 
-  // poolID-timestamp-denom-1d
-
+  // Day candles are stored with the ID poolID-timestamp-denom-1d
 
   // Calculate the price of tokenIn as USDC
   // If tokenIn is USDC then the price is 1
