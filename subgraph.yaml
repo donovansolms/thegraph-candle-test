@@ -1,6 +1,6 @@
 specVersion: 0.0.5
 description: This subgraph builds several candle sizes from Osmosis swaps
-repository: https://github.com/donovansolms/swap-tests
+repository: https://github.com/donovansolms/thegraph-candle-test
 schema:
   file: ./schema.graphql
 dataSources:
@@ -8,7 +8,7 @@ dataSources:
     name: Osmosis
     network: osmosis-1
     source:
-      startBlock: 7230000
+      startBlock: 9900000
     mapping:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
