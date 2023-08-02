@@ -1,0 +1,48 @@
+# To improve query performance, we strongly suggest adding indexes to any field that you plan to filter or sort by
+# Add the `@index` or `@index(unique: true)` annotation after any non-key field
+# https://academy.subquery.network/build/graphql.html#indexing-by-non-primary-key-field
+
+# THis file is mostly the same
+type Token @entity {
+  id: ID!
+  name: String!
+  denom: String!
+  symbol: String!
+  decimals: String
+  priceUSD: String
+}
+
+type Pair @entity {
+  id: ID!
+  poolId: String
+  symbol: String!
+  baseAsset: String!
+  quoteAsset: String!
+  name: String!
+}
+
+type Swap @entity {
+  id: ID!
+  height: BigInt!
+  sender: String
+  poolId: String
+  tokenIn: Token
+  tokenInAmount: BigInt
+  tokenOut: Token
+  tokenOutAmount: BigInt
+}
+
+type Candle @entity {
+  id: ID!
+  poolId: String
+  base: String
+  quote: String
+  interval: String
+  timestamp: Int
+
+  open: Float! # Big Decimal is a Float in SubQuery
+  high: Float!
+  low: Float!
+  close: Float!
+  volume: Float!
+}

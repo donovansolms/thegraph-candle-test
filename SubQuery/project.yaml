@@ -1,0 +1,48 @@
+specVersion: 1.0.0
+name: Candle Test
+version: 1.0.0
+runner:
+  node:
+    name: "@subql/node-cosmos"
+    version: "*"
+  query:
+    name: "@subql/query"
+    version: "*"
+description: This subgraph builds several candle sizes from Osmosis swaps
+repository: "https://github.com/donovansolms/thegraph-candle-test"
+schema:
+  file: ./schema.graphql
+network:
+  chainId: osmosis-1
+  # This endpoint must be a public non-pruned archive node
+  # We recommend providing more than one endpoint for improved reliability, performance, and uptime.
+  # This is a public node that is rate limited, which will affect indexing speed.
+  # When developing your project we strongly suggest getting a private API key.
+  endpoint:
+    - https://osmosis.api.onfinality.io/public
+  dictionary: "https://api.subquery.network/sq/subquery/cosmos-osmosis-dictionary"
+  chainTypes:
+    osmosis.gamm.v1beta1:
+      file: "./proto/cosmos/osmosis/gamm/v1beta1/tx.proto"
+      messages:
+        - MsgSwapExactAmountIn
+    osmosis.poolmanager.v1beta1:
+      # needed by MsgSwapExactAmountIn
+      file: "./proto/cosmos/osmosis/poolmanager/v1beta1/swap_route.proto"
+      messages:
+        - SwapAmountInRoute
+    cosmos.base.v1beta1:
+      # needed by MsgSwapExactAmountIn
+      file: "./proto/cosmos/cosmos.base.v1beta1.coin.proto"
+      messages:
+        - "Coin"
+dataSources:
+  - kind: cosmos/Runtime
+    startBlock: 10309000
+    mapping:
+      file: ./dist/index.js
+      handlers:
+        - handler: handleSwap
+          kind: cosmos/EventHandler
+          filter:
+            type: token_swapped
