@@ -329,13 +329,13 @@ async function createSwap(
 
   let swap = Swap.create({
     id: `${height}-${sender}`,
-    height: BigInt(height.toString()),
+    height: BigInt(height),
     sender: sender,
     poolId: poolId,
     tokenInId: tokenIn.denom,
-    tokenInAmount: BigInt(amountIn),
+    tokenInAmount: amountIn,
     tokenOutId: tokenOut.denom,
-    tokenOutAmount: BigInt(amountOut),
+    tokenOutAmount: amountOut,
   });
   await swap.save();
 
@@ -508,7 +508,7 @@ function getSymbol(denom: string): string {
  * @param input The string to extract the number from
  * @returns The number as a string, or "0" if no number was found
  */
-function extractNumberFromString(input: string): string {
+function extractNumberFromString(input: string): bigint {
   let extractedNumber = "";
   for (let i = 0; i < input.length; i++) {
     const ch: string = input[i];
@@ -523,9 +523,9 @@ function extractNumberFromString(input: string): string {
   if (extractedNumber !== "") {
     const result = parseInt(extractedNumber, 10);
     if (isNaN(result)) {
-      return "0";
+      return BigInt(0);
     }
-    return result.toString();
+    return BigInt(result);
   }
-  return "0";
+  return BigInt(0);
 }
